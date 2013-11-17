@@ -4021,6 +4021,10 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
      * - ***selection*** 编辑区域的选区对象
      */
     var Editor = UE.Editor = function (options) {
+        if (options.toolbarName)//自己修改 增加toolbarName参数
+        {
+            options.toolbars = UEDITOR_CONFIG_CLIENT.ToolbarSets[options.toolbarName];
+        }
         var me = this;
         me.uid = uid++;
         EventBase.call(me);
