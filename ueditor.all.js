@@ -1,4 +1,4 @@
-﻿(function(){
+(function(){
 UEDITOR_CONFIG = window.UEDITOR_CONFIG || {};
 
 var baidu = window.baidu || {};
@@ -109,10 +109,6 @@ var browser = UE.browser = function(){
          * @grammar     UE.browser.ie6Compat  => true|false
          */
         browser.ie6Compat = ( version < 7 || browser.quirks );
-
-        browser.ie9above = version > 8;
-
-        browser.ie9under = version < 9;
 
     }
 
@@ -3729,7 +3725,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
     var Selection = dom.Selection = function ( doc ) {
         var me = this, iframe;
         me.document = doc;
-        if ( browser.ie9under ) {
+        if ( ie ) {
             iframe = domUtils.getWindow( doc ).frameElement;
             domUtils.on( iframe, 'beforedeactivate', function () {
                 me._bakIERange = me.getIERange();
@@ -3758,7 +3754,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
         getNative:function () {
             var doc = this.document;
             try {
-                return !doc ? null : browser.ie9under ? doc.selection : domUtils.getWindow( doc ).getSelection();
+                return !doc ? null : ie && browser.ie < 9 ? doc.selection : domUtils.getWindow( doc ).getSelection();
             } catch ( e ) {
                 return null;
             }
@@ -3817,7 +3813,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
          */
         isFocus:function () {
             try {
-                return browser.ie9under && _getIERange( this ) || !browser.ie9under && this.getNative().rangeCount ? true : false;
+                return browser.ie && _getIERange( this ) || !browser.ie && this.getNative().rangeCount ? true : false;
             } catch ( e ) {
                 return false;
             }
@@ -3851,8 +3847,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
                 return this._cachedRange;
             }
             var range = new baidu.editor.dom.Range( me.document );
-
-            if ( browser.ie9under ) {
+            if ( ie && browser.ie < 9 ) {
                 var nativeRange = me.getIERange();
                 if ( nativeRange ) {
                     //备份的_bakIERange可能已经实效了，dom树发生了变化比如从源码模式切回来，所以try一下，实效就放到body开始位置
@@ -3896,10 +3891,10 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
             if ( this._cachedStartElement ) {
                 return this._cachedStartElement;
             }
-            var range = browser.ie9under ? this.getIERange() : this.getRange(),
+            var range = ie ? this.getIERange() : this.getRange(),
                 tmpRange,
                 start, tmp, parent;
-            if ( browser.ie9under ) {
+            if ( ie ) {
                 if ( !range ) {
                     //todo 给第一个值可能会有问题
                     return this.document.body.firstChild;
@@ -3942,13 +3937,13 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
         getText:function () {
             var nativeSel, nativeRange;
             if ( this.isFocus() && (nativeSel = this.getNative()) ) {
-                nativeRange = browser.ie9under ? nativeSel.createRange() : nativeSel.getRangeAt( 0 );
-                return browser.ie9under ? nativeRange.text : nativeRange.toString();
+                nativeRange = browser.ie ? nativeSel.createRange() : nativeSel.getRangeAt( 0 );
+                return browser.ie ? nativeRange.text : nativeRange.toString();
             }
             return '';
         },
         clearRange : function(){
-            this.getNative()[browser.ie9under ? 'empty' : 'removeAllRanges']();
+            this.getNative()[browser.ie ? 'empty' : 'removeAllRanges']();
         }
     };
 })();
@@ -4020,7 +4015,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
      * - ***body*** 编辑区域所在的body对象
      * - ***selection*** 编辑区域的选区对象
      */
-    var Editor = UE.Editor = function (options) {
+    var Editor = UE.Editor = function (options) {        
         if (options.toolbarName)//自己修改 增加toolbarName参数
         {
             options.toolbars = UEDITOR_CONFIG_CLIENT.ToolbarSets[options.toolbarName];
@@ -4312,7 +4307,7 @@ var fillCharReg = new RegExp(domUtils.fillChar, 'g');
             me.isReady = 1;
             me.fireEvent('ready');
             options.onready && options.onready.call(me);
-            if (!browser.ie9under) {
+            if (!browser.ie) {
                 domUtils.on(me.window, ['blur', 'focus'], function (e) {
                     //chrome下会出现alt+tab切换时，导致选区位置不对
                     if (e.type == 'blur') {
@@ -12026,7 +12021,7 @@ UE.plugins['fiximgclick'] = function() {
 ///commands 当输入内容超过编辑器高度时，编辑器自动增高
 ///commandsName  AutoHeight,autoHeightEnabled
 ///commandsTitle  自动增高
-/**
+/*
  * @description 自动伸展
  * @author zhanyi
  */
@@ -12039,7 +12034,6 @@ UE.plugins['autoheight'] = function () {
     }
 
     var bakOverflow,
-        span, tmpNode,
         lastHeight = 0,
         options = me.options,
         currentHeight,
@@ -12049,27 +12043,16 @@ UE.plugins['autoheight'] = function () {
         var me = this;
         clearTimeout(timer);
         if(isFullscreen)return;
-        timer = setTimeout(function () {
-            if (!me.queryCommandState || me.queryCommandState && me.queryCommandState('source') != 1) {
-                if (!span) {
-                    span = me.document.createElement('span');
-                    //trace:1764
-                    span.style.cssText = 'display:block;width:0;margin:0;padding:0;border:0;clear:both;';
-                    span.innerHTML = '.';
-                }
-                tmpNode = span.cloneNode(true);
-                me.body.appendChild(tmpNode);
-                currentHeight = Math.max(domUtils.getXY(tmpNode).y + tmpNode.offsetHeight,Math.max(options.minFrameHeight, options.initialFrameHeight));
+        if (!me.queryCommandState || me.queryCommandState && me.queryCommandState('source') != 1) {
+            timer = setTimeout(function(){
+                var node = me.body.lastChild;
+                currentHeight = Math.max(domUtils.getXY(node).y + node.offsetHeight + 25 ,Math.max(options.minFrameHeight, options.initialFrameHeight)) ;
                 if (currentHeight != lastHeight) {
-
                     me.setHeight(currentHeight,true);
-
                     lastHeight = currentHeight;
                 }
-                domUtils.remove(tmpNode);
-
-            }
-        }, 50);
+            },50)
+        }
     }
     var isFullscreen;
     me.addListener('fullscreenchanged',function(cmd,f){
@@ -12112,7 +12095,8 @@ UE.plugins['autoheight'] = function () {
         domUtils.on(browser.ie ? me.body : me.document, browser.webkit ? 'dragover' : 'drop', function () {
             clearTimeout(timer);
             timer = setTimeout(function () {
-                adjustHeight.call(this);
+                //trace:3681
+                adjustHeight.call(me);
             }, 100);
 
         });
@@ -18335,7 +18319,7 @@ baidu.editor.ui = {};
         getHtmlTpl: function (){
             return '<div id="##" class="edui-popup %%" onmousedown="return false;">' +
                 ' <div id="##_body" class="edui-popup-body">' +
-                ' <iframe style="position:absolute;z-index:-1;left:0;top:0;background-color: transparent;" frameborder="0" width="100%" height="100%" src="about:blank"></iframe>' +
+                ' <iframe style="position:absolute;z-index:-1;left:0;top:0;background-color: transparent;" frameborder="0" width="100%" height="100%" src="javascript:"></iframe>' +
                 ' <div class="edui-shadow"></div>' +
                 ' <div id="##_content" class="edui-popup-content">' +
                 this.getContentHtmlTpl() +
@@ -18369,18 +18353,13 @@ baidu.editor.ui = {};
 
                 var winHeight = ( document.documentElement.clientHeight || document.body.clientHeight )  - 80,
                     _height = this.getDom().offsetHeight,
-                    _top = uiUtils.getClientRect( this.combox.getDom() ).top,
+                    _top = domUtils.getXY( this.combox.getDom() ).y,
                     content = this.getDom('content'),
-                    ifr = this.getDom('body').getElementsByTagName('iframe'),
                     me = this;
-
-                ifr.length && ( ifr = ifr[0] );
 
                 while( _top + _height > winHeight ) {
                     _height -= 30;
                     content.style.height = _height + 'px';
-                    //同步更改iframe高度
-                    ifr && ( ifr.style.height = _height + 'px' );
                 }
 
                 //阻止在combox上的鼠标滚轮事件, 防止用户的正常操作被误解
@@ -18444,8 +18423,6 @@ baidu.editor.ui = {};
             var size = this.mesureSize();
             if( this.captureWheel ) {
                 popBodyEl.style.width =  -(-20 -size.width) + 'px';
-                var height = parseInt( this.getDom('content').style.height, 10 );
-                !window.isNaN( height ) && ( size.height = height );
             } else {
                 popBodyEl.style.width =  size.width + 'px';
             }
