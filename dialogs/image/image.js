@@ -280,6 +280,10 @@ var imageUploader = {},
             tmpObj.floatStyle = align;
             //修正显示时候的地址数据,如果后台返回的是图片的绝对地址，那么此处无需修正
             tmpObj._src = tmpObj.src = editor.options.imagePath + ci.url;
+            if (ci.width && ci.height) {
+                tmpObj.width = ci.width;
+                tmpObj.height = ci.height;
+            }
             imgObjs.push(tmpObj);
         }
         insertImage(imgObjs);

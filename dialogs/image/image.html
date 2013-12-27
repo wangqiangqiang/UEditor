@@ -152,7 +152,7 @@
 
                 // 单个文件上传完成的回调
                 uploadCompleteCallback: function(data){
-                    try{
+                    try {
                         var info = eval("(" + data.info + ")");
                         info && imageUrls.push(info);
                         selectedImageCount--;
